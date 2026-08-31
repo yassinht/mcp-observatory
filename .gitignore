@@ -1,0 +1,12 @@
+# Observations. The log itself is not carried in git: one census is ~300 MB and
+# git never forgets, so a week of them would exceed what GitHub is willing to
+# hold. Signed tree heads -- a few hundred bytes a day -- will live in heads/
+# once the Merkle log exists, and git's refusal to forget becomes the point.
+data/
+
+# Build output
+*.exe
+dist/
+
+# Editor
+.vscode/

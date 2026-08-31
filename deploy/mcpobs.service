@@ -1,0 +1,57 @@
+[Unit]
+Description=MCP Observatory census
+Documentation=https://github.com/yhouta/mcp-observatory
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mcpobs
+Group=mcpobs
+WorkingDirectory=/opt/mcp-observatory
+ExecStart=/opt/mcp-observatory/crawler --refresh-registry --workers=16 --delay=500ms
+
+# This box runs other things. The census is background work with no deadline --
+# it must never be the reason a real application gets slow. Every limit below
+# exists to make that structurally true rather than a matter of good behaviour.
+Nice=10
+CPUWeight=20
+CPUQuota=50%
+IOWeight=20
+# Measured, not guessed: a real run sat at 404 MB eleven minutes in, holding the
+# 251 registry pages, the 14k target list and the written-blob index all at once.
+# The 512 MB cap written here originally would have had the kernel kill the
+# census partway through. Headroom is deliberate.
+MemoryMax=1500M
+MemoryHigh=1200M
+# Kill this service, not something else, if the box ever runs out of memory.
+OOMScoreAdjust=800
+
+# A census takes about an hour on a decent link. Give it three, then give up --
+# a run that hangs forever would block every following day.
+TimeoutStartSec=3h
+
+# The crawler talks to thousands of servers it does not control. It should be
+# able to do exactly two things: read its own binary, and write its own data.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/opt/mcp-observatory/data
+
+# Thousands of concurrent sockets need more than the default file limit.
+LimitNOFILE=65536
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

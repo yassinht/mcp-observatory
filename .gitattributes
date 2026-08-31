@@ -1,0 +1,15 @@
+# Everything here is read by Linux tools. Git on Windows would otherwise check
+# these out with CRLF endings, and bash fails on the trailing carriage return
+# with the famously unhelpful "$'\r': command not found". systemd is no kinder
+# about unit files.
+*.sh        text eol=lf
+*.service   text eol=lf
+*.timer     text eol=lf
+*.go        text eol=lf
+go.mod      text eol=lf
+
+# The Windows helper is the one file that genuinely wants CRLF.
+*.cmd       text eol=crlf
+
+# Week-0 evidence is a record; keep the bytes exactly as they were measured.
+docs/week0-falsification/** -text

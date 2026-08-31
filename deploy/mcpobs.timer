@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily MCP Observatory census
+Documentation=https://github.com/yhouta/mcp-observatory
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Without this, a reboot spanning 03:00 silently skips the day and the log gets
+# a hole in it. A log with holes is worth considerably less than one without.
+Persistent=true
+# Spread the start over ten minutes so this crawler is not one more service
+# hitting the whole internet exactly on the hour.
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target
