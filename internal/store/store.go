@@ -163,6 +163,16 @@ func (s *Store) PutBlob(b []byte) (string, error) {
 	return sum, nil
 }
 
+// ReadBlob returns the archived bytes at a content address. Readers use this to
+// re-derive anything from the record: the whole point of storing raw responses
+// is that a question nobody thought to ask on the day can still be answered.
+func ReadBlob(dir, sum string) ([]byte, error) {
+	if len(sum) < 2 {
+		return nil, fmt.Errorf("store: malformed blob address %q", sum)
+	}
+	return os.ReadFile(filepath.Join(dir, "blobs", sum[:2], sum))
+}
+
 // Append writes one record as a line of the run index.
 func (s *Store) Append(r *Record) error {
 	r.SchemaVersion = SchemaVersion

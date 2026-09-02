@@ -104,6 +104,35 @@ data/runs/<runID>/meta.json     run header, including the raw registry pages
 
 Politeness is structural rather than advisory: targets are grouped by host and each host is worked by exactly one goroutine with a delay between requests, so no amount of `--workers` can hammer a single operator.
 
+## How fast do tool surfaces change?
+
+This is the question the log exists to answer, and the first attempt at it was wrong by a factor of six. Both the wrong number and the correction are kept here, because the correction is the more useful of the two.
+
+Comparing two censuses seventeen hours and fifty-one minutes apart (2026-08-30 09:12 → 2026-08-31 03:03, same machine, same network):
+
+| | |
+| --- | --- |
+| Enumerable in both runs | 8,106 |
+| Surface unchanged | 6,551 — 80.8% |
+| Surface changed | 1,555 — 19.2% |
+| Of those, keeping **identical tool names** | 1,480 — 95.2% of all changes |
+
+A server that adds or removes a tool is visible: the client sees the list change. A server that keeps `send_email` under the same name and rewrites what it claims to do announces nothing. No version bump, no notification. That second shape is the one signing cannot catch — the operator signs the new description and the signature verifies — and it accounts for 95% of everything that moves.
+
+**Then the number had to survive its own audit.** Some servers embed live data in a description: *"cache updated 2026-08-30 09:14:02, 1,204 cities"* changes on every request and means nothing. `mcpobs classify` separates those by a rule anyone can re-run against the archived bytes — replace every digit with `#` and compare again — and the result was not kind:
+
+| | | |
+| --- | --- | --- |
+| digits only | 83.5% | not a change |
+| schema edited | 10.4% | real |
+| description rewritten | 6.0% | real |
+
+**Only 16.5% of silent changes are real edits.** The honest figure is therefore about **4% of enumerable servers rewriting tool descriptions or schemas in two days** — roughly 320 servers — not the 26% a first pass suggested.
+
+An earlier sample had put the real fraction at 97%, and it was wrong for a reason worth naming: the analysis could only parse plain-JSON response bodies and silently skipped SSE-framed ones, inspecting 67 of 1,355. That sample was biased, not small. Simple servers return plain JSON and write static descriptions; complex ones stream SSE and inject live data. Measuring the easy half and generalising is how a six-fold error gets published.
+
+One limitation stands: the rule normalizes digits, not rotating prose. At least one server serves a different daily puzzle inside a tool description, which is noise this classifier still counts as real. The 16.5% is an upper bound.
+
 ## Deployment
 
 The crawler is a single static binary with no dependencies — no runtime, no database, no container.

@@ -27,9 +27,11 @@ MemoryHigh=1200M
 # Kill this service, not something else, if the box ever runs out of memory.
 OOMScoreAdjust=800
 
-# A census takes about an hour on a decent link. Give it three, then give up --
-# a run that hangs forever would block every following day.
-TimeoutStartSec=3h
+# Measured: the first two server censuses were killed at exactly three hours,
+# the second of them thirteen endpoints from the end. The tail is dead hosts
+# probed serially, not a hang. Six hours leaves real headroom while still
+# guaranteeing a stuck run cannot block the next day's.
+TimeoutStartSec=6h
 
 # The crawler talks to thousands of servers it does not control. It should be
 # able to do exactly two things: read its own binary, and write its own data.

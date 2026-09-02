@@ -40,6 +40,11 @@ func main() {
 			fatal("usage: mcpobs diff <runA> <runB>")
 		}
 		err = cmdDiff(*dataDir, args[1], args[2])
+	case "classify":
+		if len(args) != 3 {
+			fatal("usage: mcpobs classify <runA> <runB>")
+		}
+		err = cmdClassify(*dataDir, args[1], args[2])
 	case "show":
 		if len(args) != 2 {
 			fatal("usage: mcpobs show <server-name-substring>")
@@ -59,6 +64,7 @@ func usage() {
 
   mcpobs runs                  list observation runs, newest first
   mcpobs diff <runA> <runB>    what changed between two runs
+  mcpobs classify <runA> <runB>  split real edits from volatile noise
   mcpobs show <server>         one server's observed history
 
 flags:
@@ -105,6 +111,7 @@ type obs struct {
 	Surface   string   `json:"surface_sha256"`
 	ToolNames []string `json:"tool_names"`
 	ToolCount int      `json:"tool_count"`
+	PageBlobs []string `json:"page_blobs"`
 }
 
 func cmdDiff(dir, a, b string) error {
