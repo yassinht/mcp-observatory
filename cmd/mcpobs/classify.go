@@ -52,6 +52,13 @@ func cmdClassify(dir, a, b string) error {
 		total    int
 		examples []classExample
 	)
+	// Counting servers overstates how much of the ecosystem moved. One operator
+	// publishing forty servers from one template produces forty "changes" from a
+	// single edit, and the first run of this command showed exactly that: four
+	// io.github.mcp-dir servers with byte-identical edits to the same tool.
+	// Both units are reported, because they answer different questions.
+	realByHost := map[string]int{}
+	realByOwner := map[string]int{}
 
 	for k, o := range oldObs {
 		n, ok := newObs[k]
@@ -84,6 +91,10 @@ func cmdClassify(dir, a, b string) error {
 		default:
 			c.noDiff++
 		}
+		if kind == "description" || kind == "schema" {
+			realByHost[o.Host]++
+			realByOwner[ownerOf(o.Server)]++
+		}
 	}
 
 	inspected := c.description + c.schema + c.volatile + c.noDiff
@@ -106,6 +117,20 @@ func cmdClassify(dir, a, b string) error {
 
 	real := c.description + c.schema
 	fmt.Printf("\n  corrected silent-change rate: %.1f%% of inspected are real edits\n", pct(real, inspected))
+
+	// How much of that is independent activity, and how much is one template?
+	fmt.Printf("\n  %d real edits across %d hosts and %d registry owners\n",
+		real, len(realByHost), len(realByOwner))
+	if top := topN(realByOwner, 6); len(top) > 0 {
+		covered := 0
+		for _, kv := range top {
+			covered += kv.n
+		}
+		fmt.Printf("  top owners (%.1f%% of all real edits):\n", pct(covered, real))
+		for _, kv := range top {
+			fmt.Printf("    %5d  %-46s %5.1f%%\n", kv.n, kv.k, pct(kv.n, real))
+		}
+	}
 
 	if len(examples) > 0 {
 		fmt.Printf("\nexamples of rewritten descriptions:\n")
@@ -245,6 +270,39 @@ func jsonMessages(body []byte) [][]byte {
 		}
 	}
 	flush()
+	return out
+}
+
+// ownerOf takes the publisher part of a registry name: everything before the
+// first slash. "io.github.mcp-dir/caixa-mcp" and "io.github.mcp-dir/bmg-mcp"
+// are two entries from one publisher, and counting them as two independent
+// changes would double-count a single template edit.
+func ownerOf(serverName string) string {
+	if i := strings.IndexByte(serverName, '/'); i > 0 {
+		return serverName[:i]
+	}
+	return serverName
+}
+
+type kv struct {
+	k string
+	n int
+}
+
+func topN(m map[string]int, n int) []kv {
+	out := make([]kv, 0, len(m))
+	for k, v := range m {
+		out = append(out, kv{k, v})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].n != out[j].n {
+			return out[i].n > out[j].n
+		}
+		return out[i].k < out[j].k
+	})
+	if len(out) > n {
+		out = out[:n]
+	}
 	return out
 }
 

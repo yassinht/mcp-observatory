@@ -112,6 +112,7 @@ type obs struct {
 	ToolNames []string `json:"tool_names"`
 	ToolCount int      `json:"tool_count"`
 	PageBlobs []string `json:"page_blobs"`
+	Host      string   `json:"host"`
 }
 
 func cmdDiff(dir, a, b string) error {
