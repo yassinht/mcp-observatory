@@ -23,7 +23,14 @@ import (
 
 func main() {
 	dataDir := flag.String("data", "data", "observation log directory")
+	logDir := flag.String("tlog", "", "merkle log directory (default <data>/tlog)")
+	headsDir := flag.String("heads", "heads", "directory of signed tree heads")
+	pubKey := flag.String("pubkey", "heads/key.pub", "public key that signs the heads")
 	flag.Parse()
+
+	if *logDir == "" {
+		*logDir = filepath.Join(*dataDir, "tlog")
+	}
 
 	args := flag.Args()
 	if len(args) == 0 {
@@ -50,6 +57,10 @@ func main() {
 			fatal("usage: mcpobs show <server-name-substring>")
 		}
 		err = cmdShow(*dataDir, args[1])
+	case "verify":
+		err = cmdVerify(*dataDir, *logDir, *headsDir, *pubKey)
+	case "heads":
+		err = cmdHeads(*headsDir)
 	default:
 		usage()
 		os.Exit(2)
@@ -66,9 +77,15 @@ func usage() {
   mcpobs diff <runA> <runB>    what changed between two runs
   mcpobs classify <runA> <runB>  split real edits from volatile noise
   mcpobs show <server>         one server's observed history
+  mcpobs verify                rebuild the tree from the records and check
+                               it against every signed head
+  mcpobs heads                 list the published tree heads
 
 flags:
-  --data <dir>                 log directory (default "data")
+  --data <dir>                 observation directory (default "data")
+  --tlog <dir>                 merkle log (default <data>/tlog)
+  --heads <dir>                signed heads (default "heads")
+  --pubkey <file>              signing public key (default "heads/key.pub")
 `)
 }
 

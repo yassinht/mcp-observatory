@@ -21,6 +21,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -28,6 +29,7 @@ import (
 	"time"
 
 	"github.com/yhouta/mcp-observatory/internal/canon"
+	"github.com/yhouta/mcp-observatory/internal/mlog"
 	"github.com/yhouta/mcp-observatory/internal/probe"
 	"github.com/yhouta/mcp-observatory/internal/registry"
 	"github.com/yhouta/mcp-observatory/internal/store"
@@ -58,6 +60,11 @@ func main() {
 			"proceed even if the registry walk did not reach the end")
 		resume = flag.Bool("resume", false,
 			"continue the most recent interrupted run instead of starting a new one")
+
+		logDir   = flag.String("tlog", "", "merkle log directory (default <data>/tlog)")
+		headsDir = flag.String("heads", "heads", "where signed tree heads are written")
+		keyPath  = flag.String("key", "", "ed25519 signing key (default <heads>/key); "+
+			"if absent, observations are still logged but no head is signed")
 	)
 	flag.Parse()
 
@@ -314,6 +321,49 @@ func main() {
 	}
 	fmt.Fprintf(os.Stderr, "  %-16s %6d\n", "tools observed", sum.Tools)
 	fmt.Fprintf(os.Stderr, "\nindex: %s/runs/%s/index.jsonl\n", *dataDir, runID)
+
+	// ---------------------------------------------------------- merkle log
+	// Committing happens after the index is written and never before: the leaf
+	// is the index line, so anything appended to the tree must already be on
+	// disk in the form a verifier will recompute it from.
+	if *logDir == "" {
+		*logDir = filepath.Join(*dataDir, "tlog")
+	}
+	if *keyPath == "" {
+		*keyPath = filepath.Join(*headsDir, "key")
+	}
+	added, err := mlog.CommitRun(*logDir, *dataDir, runID)
+	if err != nil {
+		fatal("commit to merkle log: %v", err)
+	}
+	fmt.Fprintf(os.Stderr, "tlog: +%d observations\n", added)
+
+	key, err := mlog.LoadKey(*keyPath)
+	if err != nil {
+		// Running unsigned is a legitimate state during setup, but it must be
+		// loud: an unsigned log is a log nobody else can check.
+		fmt.Fprintf(os.Stderr, "tlog: NOT SIGNED (%v)\n", err)
+		fmt.Fprintf(os.Stderr, "      generate a key with: mcpobs-keygen %s\n", *keyPath)
+		return
+	}
+	l, err := mlog.Open(*logDir)
+	if err != nil {
+		fatal("open merkle log: %v", err)
+	}
+	defer l.Close()
+
+	head, err := l.Sign(key, time.Now())
+	if err != nil {
+		fatal("sign head: %v", err)
+	}
+	if err := os.MkdirAll(*headsDir, 0o755); err != nil {
+		fatal("heads dir: %v", err)
+	}
+	name := filepath.Join(*headsDir, time.Now().UTC().Format("2006-01-02")+".txt")
+	if err := os.WriteFile(name, []byte(head.String()), 0o644); err != nil {
+		fatal("write head: %v", err)
+	}
+	fmt.Fprintf(os.Stderr, "tlog: signed head -> %s (size %d)\n", name, head.Size)
 }
 
 // observe probes one endpoint and turns the result into a record, archiving
