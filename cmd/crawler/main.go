@@ -65,11 +65,33 @@ func main() {
 		headsDir = flag.String("heads", "heads", "where signed tree heads are written")
 		keyPath  = flag.String("key", "", "ed25519 signing key (default <heads>/key); "+
 			"if absent, observations are still logged but no head is signed")
+		commitOnly = flag.Bool("commit-only", false,
+			"probe nothing; commit every run not yet in the merkle log, then sign")
 	)
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if *logDir == "" {
+		*logDir = filepath.Join(*dataDir, "tlog")
+	}
+	if *keyPath == "" {
+		*keyPath = filepath.Join(*headsDir, "key")
+	}
+
+	// Backfill: bring runs taken before the log existed into the tree, oldest
+	// first, then sign once. Worth being precise about what this does and does
+	// not prove -- a head signed today attests that these observations are in
+	// the log as of today, not that each was taken on the day it claims. Only
+	// entries signed the day they were observed carry that stronger claim, and
+	// the README says so rather than letting a reader assume otherwise.
+	if *commitOnly {
+		if err := commitAll(*dataDir, *logDir, *headsDir, *keyPath); err != nil {
+			fatal("%v", err)
+		}
+		return
+	}
 
 	started := time.Now().UTC()
 	runID := store.NewRunID(started)
@@ -452,6 +474,60 @@ func countAnnotations(tools []json.RawMessage, rec *store.Record) {
 			rec.Annotated++
 		}
 	}
+}
+
+// commitAll appends every run's observations to the merkle log in
+// chronological order and signs the resulting head.
+func commitAll(dataDir, logDir, headsDir, keyPath string) error {
+	ents, err := os.ReadDir(filepath.Join(dataDir, "runs"))
+	if err != nil {
+		return fmt.Errorf("read runs: %w", err)
+	}
+	var runs []string
+	for _, e := range ents {
+		if e.IsDir() {
+			runs = append(runs, e.Name())
+		}
+	}
+	sort.Strings(runs) // run IDs sort chronologically, which is the leaf order
+
+	var total int64
+	for _, r := range runs {
+		n, err := mlog.CommitRun(logDir, dataDir, r)
+		if err != nil {
+			return fmt.Errorf("commit %s: %w", r, err)
+		}
+		if n > 0 {
+			fmt.Fprintf(os.Stderr, "  %s  +%d\n", r, n)
+		}
+		total += n
+	}
+
+	l, err := mlog.Open(logDir)
+	if err != nil {
+		return fmt.Errorf("open merkle log: %w", err)
+	}
+	defer l.Close()
+	fmt.Fprintf(os.Stderr, "tlog: +%d observations, %d total\n", total, l.Size())
+
+	key, err := mlog.LoadKey(keyPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tlog: NOT SIGNED (%v)\n", err)
+		return nil
+	}
+	head, err := l.Sign(key, time.Now())
+	if err != nil {
+		return fmt.Errorf("sign: %w", err)
+	}
+	if err := os.MkdirAll(headsDir, 0o755); err != nil {
+		return err
+	}
+	name := filepath.Join(headsDir, time.Now().UTC().Format("2006-01-02")+".txt")
+	if err := os.WriteFile(name, []byte(head.String()), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "tlog: signed head -> %s (size %d)\n", name, head.Size)
+	return nil
 }
 
 func fatal(format string, a ...any) {
