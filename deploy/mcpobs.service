@@ -11,6 +11,12 @@ Group=mcpobs
 WorkingDirectory=/opt/mcp-observatory
 ExecStart=/opt/mcp-observatory/crawler --refresh-registry --workers=16 --delay=500ms
 
+# Publish the freshly signed head. The leading '-' means a failure here does not
+# fail the census: the observations are archived and signed either way, and
+# GitHub being unreachable at 04:00 is not a reason to report that the crawl
+# did not happen. The next run retries.
+ExecStartPost=-/opt/mcp-observatory/publish-head.sh
+
 # This box runs other things. The census is background work with no deadline --
 # it must never be the reason a real application gets slow. Every limit below
 # exists to make that structurally true rather than a matter of good behaviour.
@@ -47,7 +53,13 @@ RestrictAddressFamilies=AF_INET AF_INET6
 RestrictNamespaces=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
-ReadWritePaths=/opt/mcp-observatory/data
+ReadWritePaths=/opt/mcp-observatory/data /opt/mcp-observatory/heads /opt/mcp-observatory/publish
+
+# The service account has no home directory, so git has nowhere to look for its
+# config or the deploy key. Point HOME at the app directory, where both live
+# under the account's own ownership.
+Environment=HOME=/opt/mcp-observatory
+Environment=GIT_SSH_COMMAND=ssh -i /opt/mcp-observatory/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new
 
 # Thousands of concurrent sockets need more than the default file limit.
 LimitNOFILE=65536
