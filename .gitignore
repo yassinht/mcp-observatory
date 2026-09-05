@@ -1,8 +1,16 @@
 # Observations. The log itself is not carried in git: one census is ~300 MB and
 # git never forgets, so a week of them would exceed what GitHub is willing to
-# hold. Signed tree heads -- a few hundred bytes a day -- will live in heads/
-# once the Merkle log exists, and git's refusal to forget becomes the point.
+# hold. The signed tree heads in heads/ are what gets published -- a few hundred
+# bytes a day -- and there git's refusal to forget becomes the point.
 data/
+
+# The signing key. If this ever reaches a public repository the log is finished:
+# anyone could forge a head, and every head already published becomes worthless
+# because nobody can tell which were signed by the operator. The .pub beside it
+# is meant to be published; the private half never leaves the server.
+heads/key
+heads/*.key
+*.pem
 
 # Build output
 *.exe

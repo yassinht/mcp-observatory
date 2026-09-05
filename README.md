@@ -133,6 +133,35 @@ An earlier sample had put the real fraction at 97%, and it was wrong for a reaso
 
 One limitation stands: the rule normalizes digits, not rotating prose. At least one server serves a different daily puzzle inside a tool description, which is noise this classifier still counts as real. The 16.5% is an upper bound.
 
+## Verifying the log
+
+The log's public key:
+
+```
+4DNVWgqiY5HKiGH3PFcKt5O+fn9EmdoTNvj4aYbwQ4E=
+```
+
+Every census appends its observations to an RFC 6962 Merkle tree and publishes a signed tree head in [`heads/`](heads/) — a few hundred readable bytes:
+
+```
+mcp-observatory/v1
+size 136225
+root 1JPVp4Dx7ds59SivxgXvaHdoTpDD1W0VyTR6SmCCL8c=
+time 2026-09-07T10:37:12Z
+sig  qv1sZUjrjHXFhtwPPPq1e770e57Xg1DpeeJFxsL/DX+5ZVl2pFDYJjHGoG6u9HzB2OYKZwPjF8VIJUw8eaaRCA==
+```
+
+```bash
+go install github.com/yhouta/mcp-observatory/cmd/mcpobs@latest
+mcpobs verify
+```
+
+`verify` rebuilds the tree from the observation records and checks the result against every published head. It deliberately ignores the stored hash file: verifying a log against hashes its own operator wrote proves nothing, since the hashes and the lie would come from the same hand. It also rejects any head that shrinks the log, because publishing fewer observations than yesterday is a deletion of history that no valid signature excuses.
+
+The tree is what makes the operator — me — untrusted rather than trusted. A signature alone cannot do this: I hold the key, so a forged head will always verify under it. What cannot be forged is the tree. If I edit one archived observation from last month, the records stop reproducing the root I signed at the time, and anyone holding that older head can prove it. [`internal/mlog/commit_test.go`](internal/mlog/commit_test.go) is that scenario as an executable test.
+
+**One honest limitation.** The first head, signed 2026-09-07, covers 136,225 observations taken over the nine days before the log existed. It attests that those observations are in the log *as of that date* — not that each was taken on the day it records. Only heads signed the day their observations were taken carry the stronger claim. Every head from 2026-09-08 onward does.
+
 ## Deployment
 
 The crawler is a single static binary with no dependencies — no runtime, no database, no container.
