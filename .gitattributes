@@ -13,3 +13,9 @@ go.mod      text eol=lf
 
 # Week-0 evidence is a record; keep the bytes exactly as they were measured.
 docs/week0-falsification/** -text
+
+# Signed tree heads are signature-covered bytes, not text. Git must never
+# translate a newline inside one: a head checked out with CRLF on Windows no
+# longer matches what was signed, and the first person who tries to verify this
+# log from a Windows clone would be told it is invalid. Treat them as binary.
+heads/** -text

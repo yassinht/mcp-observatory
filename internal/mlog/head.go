@@ -65,7 +65,13 @@ func (l *Log) Sign(key ed25519.PrivateKey, now time.Time) (*Head, error) {
 // parse exactly is refused rather than interpreted generously, because a
 // verifier that guesses at malformed input is a verifier that can be fooled.
 func ParseHead(b []byte) (*Head, error) {
-	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	// Tolerate CRLF on the way in, belt and braces alongside .gitattributes.
+	// A head is signature-covered bytes and should never be translated, but a
+	// verifier that refuses a head merely because some tool rewrote its line
+	// endings has failed at the one job it exists to do. Body() always emits
+	// LF, so what gets verified is still the canonical form.
+	text := strings.ReplaceAll(string(b), "\r\n", "\n")
+	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
 	if len(lines) != 5 {
 		return nil, fmt.Errorf("head: expected 5 lines, got %d", len(lines))
 	}

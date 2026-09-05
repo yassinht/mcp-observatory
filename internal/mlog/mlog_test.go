@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,6 +217,33 @@ func TestHeadRoundTripAndSignature(t *testing.T) {
 	other, _, _ := ed25519.GenerateKey(rand.Reader)
 	if err := h.Verify(other); err == nil {
 		t.Fatal("head verified under the wrong public key")
+	}
+}
+
+// A head that travelled through a Windows checkout must still verify. Git
+// rewrote the newlines of the first published head before .gitattributes was
+// fixed, which would have made the log look invalid to anyone verifying it
+// from a Windows clone.
+func TestHeadSurvivesCRLFTranslation(t *testing.T) {
+	l := openTemp(t)
+	if _, err := l.Append(records(32)); err != nil {
+		t.Fatal(err)
+	}
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := l.Sign(priv, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	crlf := strings.ReplaceAll(h.String(), "\n", "\r\n")
+	parsed, err := ParseHead([]byte(crlf))
+	if err != nil {
+		t.Fatalf("CRLF head failed to parse: %v", err)
+	}
+	if err := parsed.Verify(pub); err != nil {
+		t.Fatalf("CRLF head failed to verify: %v", err)
 	}
 }
 
