@@ -23,10 +23,12 @@ Early. Phase 1 of 4.
 | Phase | Scope | State |
 | --- | --- | --- |
 | 0 | Falsification test — is the ecosystem observable at all? | done, passed |
-| 1 | Crawler, raw observation archive, first census | in progress |
-| 2 | RFC 6962 Merkle log, signed tree heads, verify CLI | not started |
+| 1 | Crawler, raw observation archive, daily census | done, running |
+| 2 | RFC 6962 Merkle log, signed tree heads, verify CLI | done |
 | 3 | Public static site | not started |
 | 4 | Witnesses and gossip for split-view detection | not started |
+
+Nine consecutive daily censuses as of 2026-09-07, no gaps. A systemd timer fetches the registry, probes every endpoint, archives the raw bytes, appends to the tree, signs a head and publishes it — with no human in the loop.
 
 Phase 4 is the end state, not the entry ticket. A single-operator log is still useful — Go's own checksum database ran that way for years.
 
@@ -127,11 +129,31 @@ A server that adds or removes a tool is visible: the client sees the list change
 | schema edited | 10.4% | real |
 | description rewritten | 6.0% | real |
 
-**Only 16.5% of silent changes are real edits.** The honest figure is therefore about **4% of enumerable servers rewriting tool descriptions or schemas in two days** — roughly 320 servers — not the 26% a first pass suggested.
+That reading — 83.5% noise — was itself an artifact, and finding out why produced the most useful methodological result here. **It came from comparing two censuses taken at different times of day** (09:12 against 03:03). Many servers embed content on a daily cycle, so sampling at different points in that cycle makes them all look changed. Every census since runs at 03:00, and comparing same-hour to same-hour the noise collapses:
 
-An earlier sample had put the real fraction at 97%, and it was wrong for a reason worth naming: the analysis could only parse plain-JSON response bodies and silently skipped SSE-framed ones, inspecting 67 of 1,355. That sample was biased, not small. Simple servers return plain JSON and write static descriptions; complex ones stream SSE and inject live data. Measuring the easy half and generalising is how a six-fold error gets published.
+| interval | volatile | real | one publisher's share |
+| --- | --- | --- | --- |
+| Aug 30 09:12 → Aug 31 03:03 | 57.7% | 42.3% | 69.0% |
+| **Sep 1 03:06 → Sep 2 03:07** | **1.0%** | **99.0%** | **87.1%** |
+| **Sep 3 03:04 → Sep 4 03:05** | **0.5%** | **99.5%** | **86.9%** |
 
-One limitation stands: the rule normalizes digits, not rotating prose. At least one server serves a different daily puzzle inside a tool description, which is noise this classifier still counts as real. The 16.5% is an upper bound.
+**Sampling a live system at a fixed hour removes cyclic noise; sampling it at wandering hours measures your own clock.** The two same-hour intervals agree to within half a point on every figure.
+
+### The result, after two independent confirmations
+
+Of roughly 8,300 servers enumerable on two consecutive days, **19.2% changed their tool surface within 24 hours**, and about 95% of those changes kept identical tool names while rewriting descriptions or schemas underneath.
+
+**But the headline number is one publisher.** `io.github.pipeworx-io` accounts for **87% of every real edit**, rewriting descriptions across roughly 1,280 servers — essentially its whole fleet — every single night. Excluding it, the independent server changes at about **2.3%** per day.
+
+Both numbers are true and they answer different questions. What an agent operator experiences is 19%. How volatile a typical independent server is, is 2.3%. Reporting either alone misleads, and a single snapshot cannot tell them apart — only a daily log can.
+
+Two earlier figures here were wrong and are kept on purpose. A first pass reported 26%. A sample then put the real fraction at 97%, and it was wrong for a reason worth naming: the analysis could only parse plain-JSON response bodies and silently skipped SSE-framed ones, inspecting 67 of 1,355. That sample was **biased, not small** — simple servers return plain JSON and write static descriptions, complex ones stream SSE and inject live data. Measuring the easy half and generalising is how a six-fold error gets published.
+
+One limitation stands: the rule normalizes digits, not rotating prose. At least one server serves a different daily puzzle inside a tool description, which this classifier still counts as real.
+
+### An unexplained observation
+
+On 2026-09-06 reachability fell to 50.5% and the tool count to 109,406, against a stable 56.5–58.5% and roughly 143,000 on every neighbouring day. The drop is far larger in tools than in servers, which means the servers that went missing were the large ones — a major operator was unreachable for a single night, and returned. It has not been investigated further. It is recorded here because the log's value is precisely that such nights are recoverable after the fact.
 
 ## Verifying the log
 
