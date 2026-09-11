@@ -36,12 +36,34 @@ for f in "$HEADS_DIR"/*.txt "$HEADS_DIR/key.pub"; do
   fi
 done
 
-if [ "$copied" -eq 0 ]; then
+cd "$CLONE" || exit 0
+
+# Two writers push to this branch: the server every night, and a human from a
+# laptop whenever the code changes. Without a rebase first, the very next
+# nightly push is rejected as non-fast-forward and stays rejected until someone
+# notices. Rebase rather than merge, so the published head history stays a
+# straight line that is easy to audit.
+git fetch -q origin 2>/dev/null && git rebase -q origin/HEAD 2>/dev/null || git rebase --abort 2>/dev/null || true
+
+# Unpushed commits from a previous run whose push failed. The earlier version
+# exited here whenever there was nothing new to copy, which meant a failed push
+# was never retried -- it logged "the next run will retry" and then made that
+# impossible. Four days of signed heads sat committed and unpublished.
+unpushed=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
+
+if [ "$copied" -eq 0 ] && [ "$unpushed" -eq 0 ]; then
   log "nothing new to publish"
   exit 0
 fi
-
-cd "$CLONE" || exit 0
+if [ "$copied" -eq 0 ]; then
+  log "no new heads, but $unpushed unpushed commit(s); retrying push"
+  if git push -q origin HEAD 2>&1; then
+    log "pushed $unpushed pending commit(s)"
+  else
+    log "push still failing"
+  fi
+  exit 0
+fi
 
 # Refuse outright if the private key somehow reached the clone. Better to
 # publish nothing today than to publish the key once.

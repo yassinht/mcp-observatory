@@ -59,7 +59,12 @@ ReadWritePaths=/opt/mcp-observatory/data /opt/mcp-observatory/heads /opt/mcp-obs
 # config or the deploy key. Point HOME at the app directory, where both live
 # under the account's own ownership.
 Environment=HOME=/opt/mcp-observatory
-Environment=GIT_SSH_COMMAND=ssh -i /opt/mcp-observatory/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new
+# UserKnownHostsFile is not optional here. OpenSSH reads the account's home
+# directory from the passwd database, not from $HOME, and this service account
+# was created without one -- so ssh tried /home/mcpobs/.ssh/known_hosts, could
+# not write it, and refused every connection for four days while the crawls
+# themselves ran perfectly.
+Environment=GIT_SSH_COMMAND=ssh -i /opt/mcp-observatory/.ssh/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/opt/mcp-observatory/.ssh/known_hosts -o StrictHostKeyChecking=accept-new
 
 # Thousands of concurrent sockets need more than the default file limit.
 LimitNOFILE=65536
