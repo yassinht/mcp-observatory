@@ -18,6 +18,27 @@ CLONE="$APP_DIR/publish"
 
 log() { echo "publish-head: $*"; }
 
+# A transient GitHub outage is not worth marking a census failed -- the
+# observations are archived and signed either way. Being stuck for days is a
+# different thing entirely, and it has now happened twice: heads kept being
+# signed, pushes kept failing, and nothing anywhere said so. Silence is the
+# failure mode that costs the most, because it is indistinguishable from
+# working. So: tolerate a bad night, shout after two.
+stuck_or_exit() {
+  local oldest age days
+  oldest=$(git log --format=%ct "@{u}..HEAD" 2>/dev/null | tail -1)
+  [ -n "$oldest" ] || exit 0
+  age=$(( $(date +%s) - oldest ))
+  days=$(( age / 86400 ))
+  if [ "$days" -ge 2 ]; then
+    log "STUCK: signed heads have been unpublished for ${days} days"
+    log "the log is still being written but nobody outside can verify it"
+    exit 1   # surfaces as a failed unit in systemctl / journalctl
+  fi
+  log "will retry tomorrow (unpublished for ${days}d)"
+  exit 0
+}
+
 [ -d "$CLONE/.git" ] || { log "no clone at $CLONE; skipping"; exit 0; }
 
 # Only ever copy the public artefacts. The private key lives beside them and
@@ -59,10 +80,10 @@ if [ "$copied" -eq 0 ]; then
   log "no new heads, but $unpushed unpushed commit(s); retrying push"
   if git push -q origin HEAD 2>&1; then
     log "pushed $unpushed pending commit(s)"
-  else
-    log "push still failing"
+    exit 0
   fi
-  exit 0
+  log "push still failing"
+  stuck_or_exit
 fi
 
 # Refuse outright if the private key somehow reached the clone. Better to
@@ -83,7 +104,7 @@ git commit -q -m "Publish tree head $(date -u +%Y-%m-%d) (${size:-?} observation
 
 if git push -q origin HEAD 2>&1; then
   log "published $copied file(s), tree size ${size:-?}"
-else
-  log "push failed; the commit is local and the next run will retry"
+  exit 0
 fi
-exit 0
+log "push failed; the commit is local"
+stuck_or_exit

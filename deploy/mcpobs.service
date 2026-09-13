@@ -11,11 +11,12 @@ Group=mcpobs
 WorkingDirectory=/opt/mcp-observatory
 ExecStart=/opt/mcp-observatory/crawler --refresh-registry --workers=16 --delay=500ms
 
-# Publish the freshly signed head. The leading '-' means a failure here does not
-# fail the census: the observations are archived and signed either way, and
-# GitHub being unreachable at 04:00 is not a reason to report that the crawl
-# did not happen. The next run retries.
-ExecStartPost=-/opt/mcp-observatory/publish-head.sh
+# Publish the freshly signed head. No leading '-': the script already decides
+# what deserves to fail. It exits 0 for a bad night, and non-zero once heads
+# have gone unpublished for two days, so a stuck publisher shows up as a failed
+# unit instead of disappearing into the journal. It went unnoticed twice before
+# this, both times while the crawls themselves ran perfectly.
+ExecStartPost=/opt/mcp-observatory/publish-head.sh
 
 # This box runs other things. The census is background work with no deadline --
 # it must never be the reason a real application gets slow. Every limit below
