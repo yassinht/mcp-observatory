@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/yhouta/mcp-observatory/internal/store"
+	"github.com/yassinht/mcp-transparency-log/internal/store"
 )
 
 func main() {

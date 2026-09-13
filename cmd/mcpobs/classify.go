@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/yhouta/mcp-observatory/internal/store"
+	"github.com/yassinht/mcp-transparency-log/internal/store"
 )
 
 // A "silent change" is a server that served the same set of tool names on two

@@ -28,17 +28,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yhouta/mcp-observatory/internal/canon"
-	"github.com/yhouta/mcp-observatory/internal/mlog"
-	"github.com/yhouta/mcp-observatory/internal/probe"
-	"github.com/yhouta/mcp-observatory/internal/registry"
-	"github.com/yhouta/mcp-observatory/internal/store"
+	"github.com/yassinht/mcp-transparency-log/internal/canon"
+	"github.com/yassinht/mcp-transparency-log/internal/mlog"
+	"github.com/yassinht/mcp-transparency-log/internal/probe"
+	"github.com/yassinht/mcp-transparency-log/internal/registry"
+	"github.com/yassinht/mcp-transparency-log/internal/store"
 )
 
 const version = "0.1.0"
 
 var userAgent = "mcp-observatory/" + version +
-	" (+https://github.com/yhouta/mcp-observatory; public transparency log; contact: yassine.houta@outlook.fr)"
+	" (+https://github.com/yassinht/mcp-transparency-log; public transparency log; contact: yassine.houta@outlook.fr)"
 
 func main() {
 	var (

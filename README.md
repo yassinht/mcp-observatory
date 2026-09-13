@@ -1,4 +1,4 @@
-# MCP Observatory
+# MCP Transparency Log
 
 An independent, continuously-operated record of what public MCP servers actually served.
 
@@ -166,7 +166,7 @@ The log's public key:
 Every census appends its observations to an RFC 6962 Merkle tree and publishes a signed tree head in [`heads/`](heads/) — a few hundred readable bytes:
 
 ```
-mcp-observatory/v1
+mcp-transparency-log/v1
 size 136225
 root 1JPVp4Dx7ds59SivxgXvaHdoTpDD1W0VyTR6SmCCL8c=
 time 2026-09-07T10:37:12Z
@@ -174,7 +174,7 @@ sig  qv1sZUjrjHXFhtwPPPq1e770e57Xg1DpeeJFxsL/DX+5ZVl2pFDYJjHGoG6u9HzB2OYKZwPjF8V
 ```
 
 ```bash
-go install github.com/yhouta/mcp-observatory/cmd/mcpobs@latest
+go install github.com/yassinht/mcp-transparency-log/cmd/mcpobs@latest
 mcpobs verify
 ```
 
@@ -194,7 +194,7 @@ scp dist/crawler dist/mcpobs deploy/* user@server:~/
 ssh user@server 'sudo bash install.sh'
 ```
 
-`install.sh` creates a `mcpobs` service account with no shell, installs to `/opt/mcp-observatory`, and enables a daily systemd timer. It refuses to run if any name it needs is already taken, rather than overwriting something that might matter.
+`install.sh` creates a `mcpobs` service account with no shell, installs to `/opt/mcp-transparency-log`, and enables a daily systemd timer. It refuses to run if any name it needs is already taken, rather than overwriting something that might matter.
 
 The unit is deliberately constrained. The crawler talks to fourteen thousand servers it does not control, on a box that is probably running something else that does matter:
 

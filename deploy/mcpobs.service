@@ -1,6 +1,6 @@
 [Unit]
 Description=MCP Observatory census
-Documentation=https://github.com/yhouta/mcp-observatory
+Documentation=https://github.com/yassinht/mcp-transparency-log
 After=network-online.target
 Wants=network-online.target
 

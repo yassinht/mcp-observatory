@@ -1,4 +1,4 @@
-module github.com/yhouta/mcp-observatory
+module github.com/yassinht/mcp-transparency-log
 
 go 1.25.0
 

@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yhouta/mcp-observatory/internal/mlog"
+	"github.com/yassinht/mcp-transparency-log/internal/mlog"
 )
 
 func main() {

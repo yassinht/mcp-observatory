@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yhouta/mcp-observatory/internal/canon"
+	"github.com/yassinht/mcp-transparency-log/internal/canon"
 )
 
 // SchemaVersion is stamped on every record. Bump it when the meaning of a field
