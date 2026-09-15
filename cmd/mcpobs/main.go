@@ -61,6 +61,12 @@ func main() {
 		err = cmdVerify(*dataDir, *logDir, *headsDir, *pubKey)
 	case "heads":
 		err = cmdHeads(*headsDir)
+	case "export":
+		out := "docs"
+		if len(args) == 2 {
+			out = args[1]
+		}
+		err = cmdExport(*dataDir, out)
 	default:
 		usage()
 		os.Exit(2)
@@ -80,6 +86,7 @@ func usage() {
   mcpobs verify                rebuild the tree from the records and check
                                it against every signed head
   mcpobs heads                 list the published tree heads
+  mcpobs export [dir]          write static JSON for the site (default "docs")
 
 flags:
   --data <dir>                 observation directory (default "data")

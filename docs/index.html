@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Transparency Log</title>
+<style>
+:root{
+  --bg:#fbfaf8; --fg:#1a1a18; --muted:#6b6a64; --line:#e3e1db;
+  --card:#fff; --accent:#1d6e56; --warn:#8a5a0b; --bad:#9a3b32;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#141413;--fg:#e8e6e1;--muted:#96948d;--line:#2c2b28;
+        --card:#1c1b19;--accent:#5dcaa5;--warn:#e0a94a;--bad:#e07b70;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+h1{font-size:1.5rem;font-weight:600;margin:0 0 .35rem;letter-spacing:-.01em}
+h2{font-size:1.05rem;font-weight:600;margin:2.75rem 0 .9rem}
+p{margin:0 0 1rem;max-width:62ch}
+a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.sub{color:var(--muted);margin-bottom:1.75rem}
+code,.mono{font-family:var(--mono);font-size:.86em}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:.85rem 1rem;overflow-x:auto;margin:0 0 1rem;font-size:.84rem}
+.grid{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.85rem 1rem}
+.stat .k{font-size:.76rem;color:var(--muted);letter-spacing:.02em}
+.stat .v{font-size:1.5rem;font-weight:600;margin-top:.15rem;font-variant-numeric:tabular-nums}
+.stat .n{font-size:.76rem;color:var(--muted);margin-top:.1rem}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:.78rem;
+  padding:.4rem .6rem;border-bottom:1px solid var(--line)}
+td{padding:.45rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+input[type=search]{width:100%;padding:.6rem .8rem;font:inherit;border-radius:8px;
+  border:1px solid var(--line);background:var(--card);color:inherit}
+.note{color:var(--muted);font-size:.84rem}
+.bars{display:flex;align-items:flex-end;gap:3px;height:120px;margin:.5rem 0 .35rem}
+.bar{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;opacity:.85}
+.bar.partial{background:var(--warn)}
+.axis{display:flex;justify-content:space-between;color:var(--muted);font-size:.74rem}
+.tag{font-size:.74rem;padding:.1rem .45rem;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+.ok{color:var(--accent)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+footer{margin-top:4rem;padding-top:1.25rem;border-top:1px solid var(--line);
+  color:var(--muted);font-size:.84rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>MCP Transparency Log</h1>
+<p class="sub">An independent, continuously-operated record of what public MCP servers actually served.</p>
+
+<p>Every night a crawler visits every server in the official MCP registry that declares a network
+endpoint, and records the exact tool surface it served. Observations go into an append-only
+Merkle log with a signed tree head published daily, so these figures can be recomputed rather
+than taken on trust.</p>
+
+<p class="note">This page is a <em>derived view</em>. The record is the log — verify it yourself:</p>
+<pre>go install github.com/yassinht/mcp-transparency-log/cmd/mcpobs@latest
+mcpobs verify</pre>
+
+<h2>Latest census</h2>
+<div class="grid" id="stats"><div class="stat"><div class="k">loading…</div></div></div>
+<p class="note" id="stats-note"></p>
+
+<h2>Endpoints observed, by day</h2>
+<div class="bars" id="bars"></div>
+<div class="axis"><span id="ax-from"></span><span id="ax-to"></span></div>
+<p class="note">Amber marks a census that did not reach every endpoint. Its <code>meta.json</code> records it as incomplete.</p>
+
+<h2>Daily outcomes</h2>
+<div class="scroll">
+  <table id="census">
+    <thead><tr>
+      <th>date</th><th class="num">endpoints</th><th class="num">enumerable</th>
+      <th class="num">auth</th><th class="num">not MCP</th><th class="num">unreachable</th>
+      <th class="num">tools</th><th></th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<h2>Servers</h2>
+<p class="note">Type at least three characters to search by name or host. The index is loaded on first search.</p>
+<input type="search" id="q" placeholder="weather, pipeworx.io, github…" autocomplete="off">
+<div id="results" style="margin-top:.9rem"></div>
+
+<footer>
+  Signed tree heads: <a href="https://github.com/yassinht/mcp-transparency-log/tree/main/heads">heads/</a>
+  · Source and raw analysis: <a href="https://github.com/yassinht/mcp-transparency-log">GitHub</a>
+  · Covers <strong>publicly observable</strong> MCP servers listed in the official registry —
+  not the MCP ecosystem as a whole.
+</footer>
+
+</div>
+<script>
+const n = x => (x ?? 0).toLocaleString('en-US');
+const pct = (a,b) => b ? (100*a/b).toFixed(1)+'%' : '—';
+
+let census = [];
+
+fetch('data/census.json').then(r=>r.json()).then(d=>{
+  census = d;
+  if(!census.length) return;
+  const last = census[census.length-1], o = last.outcomes||{};
+  const ok = o.ok||0;
+
+  document.getElementById('stats').innerHTML = [
+    ['endpoints probed', n(last.endpoints), last.date],
+    ['answered unauthenticated', n(ok), pct(ok,last.endpoints)],
+    ['tools recorded', n(last.tools), ''],
+    ['days observed', n(census.length), census[0].date+' →']
+  ].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${s}</div></div>`).join('');
+
+  document.getElementById('stats-note').textContent =
+    last.complete ? 'Latest census reached every endpoint.'
+                  : 'Latest census did not reach every endpoint; it is recorded as incomplete.';
+
+  // bars
+  const max = Math.max(...census.map(c=>c.endpoints));
+  document.getElementById('bars').innerHTML = census.map(c=>
+    `<div class="bar${c.complete?'':' partial'}" style="height:${Math.round(100*c.endpoints/max)}%" title="${c.date}: ${n(c.endpoints)} endpoints"></div>`
+  ).join('');
+  document.getElementById('ax-from').textContent = census[0].date;
+  document.getElementById('ax-to').textContent = census[census.length-1].date;
+
+  // table, newest first
+  document.querySelector('#census tbody').innerHTML = census.slice().reverse().map(c=>{
+    const o=c.outcomes||{};
+    return `<tr><td class="mono">${c.date}</td>
+      <td class="num">${n(c.endpoints)}</td>
+      <td class="num ok">${n(o.ok)} <span class="note">${pct(o.ok||0,c.endpoints)}</span></td>
+      <td class="num">${n(o.auth_required)}</td>
+      <td class="num warn">${n(o.protocol_error)}</td>
+      <td class="num">${n((o.unreachable||0)+(o.timeout||0))}</td>
+      <td class="num">${n(c.tools)}</td>
+      <td>${c.complete?'':'<span class="tag">incomplete</span>'}</td></tr>`;
+  }).join('');
+}).catch(()=>{
+  document.getElementById('stats').innerHTML =
+    '<div class="stat"><div class="k">no data</div><div class="n">run <code>mcpobs export</code> first</div></div>';
+});
+
+let servers = null, timer = null;
+const q = document.getElementById('q'), results = document.getElementById('results');
+
+q.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(search, 180);
+});
+
+async function search(){
+  const term = q.value.trim().toLowerCase();
+  if(term.length < 3){ results.innerHTML=''; return; }
+  if(!servers){
+    results.innerHTML = '<p class="note">loading the index…</p>';
+    try { servers = await (await fetch('data/servers.json')).json(); }
+    catch { results.innerHTML = '<p class="note">index unavailable</p>'; return; }
+  }
+  const hits = servers.filter(s =>
+    s.name.toLowerCase().includes(term) || (s.host||'').toLowerCase().includes(term)
+  );
+  if(!hits.length){ results.innerHTML = '<p class="note">nothing matches.</p>'; return; }
+
+  results.innerHTML = `<p class="note">${n(hits.length)} match${hits.length>1?'es':''}${hits.length>200?', showing 200':''}</p>
+  <div class="scroll"><table>
+  <thead><tr><th>server</th><th>host</th><th class="num">tools</th><th class="num">days</th>
+  <th class="num">changes</th><th>first seen</th><th></th></tr></thead><tbody>` +
+  hits.slice(0,200).map(s=>`<tr>
+    <td class="mono">${esc(s.name)}</td>
+    <td class="mono note">${esc(s.host||'')}</td>
+    <td class="num">${s.outcome==='ok'?n(s.tools):'—'}</td>
+    <td class="num">${n(s.days)}</td>
+    <td class="num">${s.changes?`<strong>${n(s.changes)}</strong>`:'0'}</td>
+    <td class="mono note">${s.first_seen}</td>
+    <td>${s.outcome==='ok'?'<span class="ok">ok</span>':`<span class="bad">${esc(s.outcome)}</span>`}</td>
+  </tr>`).join('') + '</tbody></table></div>';
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>

@@ -72,6 +72,28 @@ git fetch -q origin 2>/dev/null && git rebase -q origin/HEAD 2>/dev/null || git 
 # impossible. Four days of signed heads sat committed and unpublished.
 unpushed=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
 
+# Regenerate the static site data. census.json and the per-day change files are
+# small enough to commit every night. servers.json is a few megabytes and every
+# row carries a last-seen date, so it rewrites completely every day -- committing
+# that nightly would add well over a gigabyte a year to a repository GitHub will
+# stop hosting long before then. It goes in weekly instead, which bounds the
+# growth without losing anything: the daily change files already carry what moved.
+if [ -x "$APP_DIR/mcpobs" ]; then
+  if "$APP_DIR/mcpobs" --data "$APP_DIR/data" export "$CLONE/docs" >/dev/null 2>&1; then
+    git add docs/data/census.json docs/data/changes 2>/dev/null || true
+    last=$(git log -1 --format=%ct -- docs/data/servers.json 2>/dev/null || echo 0)
+    if [ "$(( ($(date +%s) - last) / 86400 ))" -ge 7 ]; then
+      git add docs/data/servers.json 2>/dev/null || true
+      log "refreshing servers.json (weekly)"
+    else
+      git checkout -- docs/data/servers.json 2>/dev/null || true
+    fi
+    git diff --cached --quiet || copied=$((copied + 1))
+  else
+    log "site export failed"
+  fi
+fi
+
 if [ "$copied" -eq 0 ] && [ "$unpushed" -eq 0 ]; then
   log "nothing new to publish"
   exit 0
